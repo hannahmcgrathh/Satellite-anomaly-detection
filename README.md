@@ -30,9 +30,11 @@ This one file contains ALL the code for the project. It is organised into seven 
 7. **Summary plots**. Creates plots visualising the performance metrics of the various models 
 
 Upon running this entire file, the following will be generated:
-    * dataframe 'eval_metrics' shows the F-score, best precision given recall >0.8, best recall given precision > 0.8, false negative rate for every model for every satellite
-    * dataframe 'summary_metrics' shows the average of these metrics across each of the three models
-    * plots visualising these performance metrics (some excluding outlier jason-1)
+
+* dataframe 'eval_metrics' shows the F-score, best precision given recall >0.8, best recall given precision > 0.8, false negative rate for every model for every satellite
+* dataframe 'summary_metrics' shows the average of these metrics across each of the three models
+* plots visualising these performance metrics (some excluding outlier jason-1)
+
 
 ### Files
 As such, the 2LE unpropagated orbital element data for each satellite should be in the working directory, with filenames '(un)propagated_elements_[satellite].csv'
