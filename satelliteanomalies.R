@@ -1,5 +1,5 @@
-#### initial set up etc ####
-pacman::p_load(tidyverse, skimr, xgboost, yardstick, forecast, dplyr, lubridate, plotly)
+#### Initial set up ####
+pacman::p_load(tidyverse, skimr, xgboost, yardstick, forecast, dplyr, lubridate, plotly, patchwork)
 
 #read in data
 satellites <- c("CryoSat-2", "Fengyun-2D", "Fengyun-2E", "Fengyun-2F", "Fengyun-2H", "Fengyun-4A", "Haiyang-2A", "Sentinel-3A", "Jason-1", "Jason-2", "Jason-3", "SARAL", "Sentinel-3B", "Sentinel-6A", "TOPEX")
@@ -38,8 +38,9 @@ satellite_data <- lapply(satellite_data, function(satellite_df) {
 })
 
 
-#### adding maneuvers ####
 
+
+#### Maneuvers ####
 
 #read maneuver data from a text file
 read_maneuver_data <- function(file_path) {
@@ -60,7 +61,7 @@ convert_maneuver_dates <- function(maneuver_data) {
   
 }
 
-convert_maneuver_dates(read_maneuver_data("uni/satellite/satellite_data/manoeuvres/cs2man.txt"))
+convert_maneuver_dates(read_maneuver_data("./manoeuvres/cs2man.txt"))
 
 # Mark / identify maneuvers in data
 mark_maneuvers <- function(unpropagated_data, maneuver_data) {
@@ -106,8 +107,8 @@ process_satellite_maneuvers <- function(satellite_name, maneuver_file_path) {
 format1_satellites <- c("CryoSat-2", "Haiyang-2A", "Sentinel-3A", "Jason-1", "Jason-2", "Jason-3", "Sentinel-3B",  "TOPEX")
 format1_maneuvres <- c("cs2man.txt", "h2aman.txt", "s3aman.txt", "ja1man.txt", "ja2man.txt", "ja3man.txt", "s3bman.txt", "topman.txt")
 
-#Folder
-maneuver_folder <- "uni/satellite/satellite_data/manoeuvres"
+#Folder (can be changed if necessary)
+maneuver_folder <- "./manoeuvres"
 
 #process
 for (i in seq_along(format1_satellites)) {
@@ -202,12 +203,6 @@ for (i in seq_along(format2_satellites)) {
 }
 
 
-
-
-
-
-#### preliminary cleaning ####
-
 #looks like date is weird for propagated elements cryosat 2:
 #(date contained last section of the unpropagated data date for this satellite - replace with this date)
 # Extract the propagated and unpropagated data for CryoSat-2
@@ -225,7 +220,6 @@ satellite_data[["CryoSat-2"]]$propagated <- propagated_elements_CryoSat_2
 
 
 #### EDA ####
-
 
 #function for visualising elements (all elements):
 plot_satellite_data <- function(satellite_name) {
@@ -349,9 +343,7 @@ plot_satellite_data <- function(satellite_name) {
   print(p5)
   print(p6)
 }
-#plot_satellite_data("Jason-3")
-#plot_satellite_data("Sentinel-3B")
-#plot_satellite_data("Fengyun-2D")
+#plot_satellite_data("Jason-1")
 
 #visualise specific elements no maneuvers
 plot_satellite_data_no_man <- function(satellite_name, element) {
@@ -392,7 +384,7 @@ plot_satellite_data_no_man <- function(satellite_name, element) {
 }
 #plot_satellite_data_no_man("Jason-3", "Brouwer mean motion")
 
-#see if there is any seasonality?
+#see if there is any seasonality? returns three years of data, stacked on top of each other
 plot_seasonal_stack <- function(satellite_name, orbital_element) {
   
 
@@ -447,7 +439,7 @@ plot_seasonal_stack <- function(satellite_name, orbital_element) {
 
 
 
-#### more cleaning ####
+#### Cleaning ####
 
 #after looking at data, can identify periods of noise/ changing orbits...
 truncate_satellite_data <- function(satellite_name, start_date, end_date) {
@@ -495,7 +487,6 @@ delete_satellite_data_section("Fengyun-2E", "2015-06-01","2015-06-30")
 delete_satellite_data_section("Fengyun-2E", "2015-12-22","2015-12-27")
 
 #correct for BIG chanegs in altitude
-
 adjust_data_by_mean_difference <- function(satellite_name, start_date_1, end_date_1, start_date_2) {
   # Extract the unpropagated data for the given satellite
   satellite_data2 <- satellite_data[[satellite_name]]$unpropagated
@@ -567,15 +558,13 @@ adjust_data_by_mean_difference_opposite(
   start_date_2 = "2012-05-03"
 )
 
-#plot_satellite_data_no_man("CryoSat-2", "Brouwer mean motion")
 
 
 
 
-#### MODELS ####
+#### Models ####
 
 ### HELPER FUNCTIONS:
-
 compute_fourier_terms <- function(df, n_terms = 4) {
   #Date should be in date format
   df <- df %>%
@@ -669,7 +658,7 @@ compute_precision_recall <- function(df_y_plotting, residuals, actual_maneuvers)
 }
 
 
-### Models:
+### Models: 
 
 #   xgboost
 fit_and_evaluate_xgboost <- function(satellite_name, element="Brouwer mean motion", nrounds = 100, early_stopping_rounds = 10, threshold ) {
@@ -859,12 +848,9 @@ fit_and_evaluate_xgboost <- function(satellite_name, element="Brouwer mean motio
   
   print(ggplotly(g))
   
-  
+  #importance matrix
   importance_matrix <- xgb.importance(model = xgb_model)  
-  
-
   top6_importance <- importance_matrix[1:6,]
-  
 
   #xgb.plot.importance(top6_importance, xlab = "Relative Importance")
   
@@ -964,8 +950,6 @@ fit_and_evaluate_arima <- function(satellite_name, element="Brouwer mean motion"
       y = "Residuals",
       subtitle = "Blue line: Residuals, Red dashed lines: Actual Maneuver Dates, Green dotted lines: Predicted Maneuver Dates"
     ) +
-    
-    # Rotate x-axis text for better readability
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
   print(ggplotly(p))  # Display the interactive plot
@@ -1131,7 +1115,7 @@ fit_and_evaluate_arimax <- function(satellite_name, element="Brouwer mean motion
 #fit_and_evaluate_arima("Jason-1", threshold = 8.098494e-08)
 #fit_and_evaluate_arimax("Sentinel-3B", threshold =2.673723e-08)
 
-#could change this to experiment with another set from 'satellites'
+#could change this list to experiment with another set from 'satellites'
 satellites_here <- c("Sentinel-3A", "Sentinel-3B","CryoSat-2","Fengyun-2D","Fengyun-2E","Jason-1", "Jason-3")
 
 # Loop over 'satellites here' i.e. run all functions on all satellites
@@ -1139,7 +1123,7 @@ for (i in 1:length(satellites_here)) {
   satellite_name <- satellites_here[i]
 
   # Run ARIMA model
-  fit_and_evaluate_arima(satellite_name, threshold = 10) #threshold is arbitary at this stage
+  fit_and_evaluate_arima(satellite_name, threshold = 10) #threshold is entirely arbitary at this stage
   
   # Run ARIMAX model
   fit_and_evaluate_arimax(satellite_name,  threshold = 10)
@@ -1147,12 +1131,13 @@ for (i in 1:length(satellites_here)) {
   # Run XGBoost model
   fit_and_evaluate_xgboost(satellite_name, threshold = 10)
   
-  
 }
+
+
 
 #### Evaluation  ####
 
-# see one PR curve (pass 'precision_recall_data[_arima(x)]_[satellit ename with no hyphen])
+# see one PR curve (pass 'precision_recall_data[_arima(x)]_[satellit ename with no hyphen]. eg. 'precision_recall_data_arimax_CryoSat2)
 pr_plot <- function(precision_recall_data) {
   # Extract the name of the data frame passed to the function
   data_name <- deparse(substitute(precision_recall_data))
